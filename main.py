@@ -1,3 +1,37 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import List, Optional
+import os
+from supabase import create_client, Client
+from ortools.sat.python import cp_model
+
+app = FastAPI(title="Emoteca Solver API", version="1.0")
+
+# Connessione a Supabase tramite variabili d'ambiente
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+def get_supabase_client() -> Client:
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise HTTPException(status_code=500, detail="Credenziali Supabase non configurate nel server Python.")
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+class OperatoreInput(BaseModel):
+    id: str
+    nome: str
+    ruolo: Optional[str] = "Operatore"
+    stato_disponibilita: str
+    in_turno_pomeriggio: bool
+
+class TurnoRequest(BaseModel):
+    data_turno: str
+    anno: int
+    operatori: List[OperatoreInput]
+
+@app.get("/")
+def read_root():
+    return {"status": "online", "service": "Emoteca Solver Python API"}
+
 @app.post("/calcola-turno")
 def calcola_turno(payload: TurnoRequest):
     supabase = get_supabase_client()
