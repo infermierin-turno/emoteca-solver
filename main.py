@@ -51,18 +51,18 @@ def calcola_turno(payload: TurnoRequest):
             if t.get("utente_id"):
                 utenti_in_turno_pomeriggio.add(str(t.get("utente_id")))
 
-    # 2. Filtriamo gli operatori idonei tra quelli inviati (disponibili E in turno pomeriggio su Supabase)
+    # 2. Filtriamo gli operatori idonei: DEVONO essere sia disponibili che ufficialmente in turno pomeriggio su Supabase.
+    # NESSUN FALLBACK PERMESSO: se non ci sono turni inseriti o nessuno è in pomeriggio, la lista resterà vuota e si bloccherà.
     operatori_idonei = [
         op for op in payload.operatori 
         if op.stato_disponibilita == 'disponibile' and str(op.id) in utenti_in_turno_pomeriggio
     ]
 
-    # Fallback di sicurezza: se per quella data non ci sono turni inseriti nella tabella 'turni', consideriamo tutti i disponibili
-    if not operatori_idonei and not turni_ospedale:
-        operatori_idonei = [op for op in payload.operatori if op.stato_disponibilita == 'disponibile']
-
     if not operatori_idonei:
-        raise HTTPException(status_code=400, detail=f"Nessun operatore idoneo (disponibile e in turno 'Pomeriggio') per la data {payload.data_turno}.")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Impossibile assegnare il turno per il {payload.data_turno}: nessun operatore risulta regolarmente in turno di pomeriggio nella tabella 'turni' di Supabase o disponibile."
+        )
 
     # 3. Recuperiamo lo storico annuale dei turni_trasporti da Supabase per calcolare l'equità
     inizio_anno = f"{payload.anno}-01-01"
